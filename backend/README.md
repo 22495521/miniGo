@@ -1,10 +1,10 @@
 # backend
 
-FastAPI service managed with [uv](https://docs.astral.sh/uv/).
+FastAPI service managed with [uv](https://docs.astral.sh/uv/)，開發伺服器由 FastAPI CLI 啟動。
 
 ```bash
 uv sync
-uv run uvicorn app.main:app --reload --port 8000
+uv run fastapi dev
 ```
 
 Docs: http://localhost:8000/docs

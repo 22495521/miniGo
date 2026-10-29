@@ -5,9 +5,8 @@ description = "miniGO FastAPI backend"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.162.0",
+    "fastapi[standard]>=0.162.0",
     "pydantic-settings>=2.16.2",
-    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]

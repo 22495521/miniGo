@@ -17,8 +17,9 @@ miniGO 是全端專案，分為兩個獨立子專案：
 uv sync                                          # 安裝相依
 uv add <package>                                 # 新增套件（不要用 pip）
 uv add --dev <package>                           # 新增開發相依
-uv run uvicorn app.main:app --reload --port 8000 # 啟動開發伺服器
-uv run ruff check . && uv run ruff format .      # lint 與格式化
+uv run fastapi dev           # 啟動開發伺服器（自動找到 app/main.py，port 8000，熱重載）
+uv run fastapi run           # 正式模式啟動
+uv run ruff check . && uv run ruff format .   # lint 與格式化
 ```
 
 前端（在 `frontend/` 執行）：
