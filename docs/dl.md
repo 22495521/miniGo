@@ -43,4 +43,5 @@
 ## 訓練資料
 
 - `data/`：KGS 棋譜與 `load_kgs.py` 的產出，不進 git。
-- `generated_games/`：MCTS 自我對弈資料，9x9、oneplane 編碼，不進 git。`features-40k.npy` 是 `(N, 1, 9, 9)`；`features-20` / `features-200` 少了平面那一維，是 `(N, 9, 9)`，使用前要 reshape。labels 是 81 維 one-hot。
+- 產生方式：`uv run python load_kgs.py -n <盤數> -e <編碼器> [--test]`；`--test` 另外產生固定 100 盤測試集（約多下載 15 個檔）。KGS 棋譜只有 19 路。
+- `generated_games/`：MCTS 自我對弈資料，9x9、oneplane 編碼，不進 git。`features-40k.npy` 是 `(N, 1, 9, 9)`；`features-20` / `features-200` 少了平面那一維，是 `(N, 9, 9)`，使用前要 reshape。labels 是 81 維 one-hot。這些檔案是外部產生的，repo 裡沒有產生它們的腳本。
