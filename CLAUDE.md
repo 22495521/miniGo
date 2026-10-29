@@ -15,12 +15,12 @@ miniGO 是全端專案，分為兩個獨立子專案：
 
 棋盤規則與機器人用的是同層 `../go_example` 裡的 `dlgo` 套件，以 editable path dependency 引入（見 `backend/pyproject.toml` 的 `[tool.uv.sources]`）。在 go_example 改的程式 miniGO 會直接用到，但 `fastapi dev` 只監看 `backend/`，改了 dlgo 要手動重啟後端。不要把 dlgo 的檔案複製進 miniGO。
 
-- 一律使用 `dlgo.goboard_fast`。`dlgo.agent.naive.RandomBot` 回傳的是 `dlgo.goboard.Move`，`app/game.py` 會轉成 `goboard_fast.Move`。
+- 一律使用 `dlgo.goboard_fast`。`dlgo.agent.naive.RandomBot` 回傳的是 `dlgo.goboard.Move`，`app/services/game.py` 會轉成 `goboard_fast.Move`。
 - 計分是 `dlgo.scoring` 的數子法、貼目 7.5，不判斷死子。
 
 ## 架構：無狀態後端
 
-後端不保存棋局。前端（Pinia store `frontend/src/stores/game.ts`）保存落子紀錄 `moves`（如 `["E5","C3","pass"]`），每次請求都整串送給後端，後端從空棋盤重下（`Game.replay`），同時驗證每一手都合法。不能只傳盤面快照，因為打劫判定需要歷史盤面。
+後端不保存棋局。前端（Pinia store `frontend/src/stores/game.ts`）保存落子紀錄 `moves`（如 `["E5","C3","pass"]`），每次請求都整串送給後端，後端從空棋盤重下（`services/game.py` 的 `Game.replay`），同時驗證每一手都合法。不能只傳盤面快照，因為打劫判定需要歷史盤面。
 
 - `POST /api/game/state {size, moves}`：回傳盤面，用於開新局與悔棋。
 - `POST /api/game/play {size, moves, move}`：玩家（黑）下一手，沒終局的話機器人接著回一手。
@@ -54,8 +54,14 @@ npm run format
 ## 慣例
 
 - **Python 一律透過 uv**，不要使用 `pip`、`python -m venv`，也不要手動編輯 `uv.lock`。
-- 後端程式碼放在 `backend/app/`，匯入一律從 `app.` 開頭。
-- 設定值集中在 `backend/app/config.py` 的 `Settings`，由 `.env` 讀取；新增設定時同步更新 `.env.example`。
+- 後端程式碼放在 `backend/app/`，匯入一律從 `app.` 開頭，依職責分資料夾：
+  - `main.py`：只負責建立 app、掛 middleware、例外處理與 router，不放業務邏輯。
+  - `core/`：設定（`config.py`）與共用例外（`exceptions.py`）。
+  - `api/routes/`：每個功能一個檔案，只做「收 request → 呼叫 service → 回 response」；新的 router 要加進 `api/router.py`（統一掛在 `/api` 下）。
+  - `schemas/`：Pydantic 的 request／response 模型，依功能分檔。
+  - `services/`：業務邏輯，例如 `services/game.py` 用 dlgo 重建對局。
+  - 業務錯誤在 service 裡丟 `IllegalMoveError` 之類的例外，由 `core/exceptions.py` 的 handler 統一轉成 HTTP 回應，route 裡不寫 try/except。
+- 設定值集中在 `backend/app/core/config.py` 的 `Settings`，由 `.env` 讀取；新增設定時同步更新 `.env.example`。
 - 所有後端路由掛在 `/api` 前綴下；Vite 已把 `/api` 代理到 `http://localhost:8000`，前端呼叫時用相對路徑即可。
 - 前端使用 `<script setup lang="ts">` 的 Composition API；`@/` 指向 `frontend/src/`。
 - 不要提交 `.env`、`.venv/`、`node_modules/`、`dist/`。

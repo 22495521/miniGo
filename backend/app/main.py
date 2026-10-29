@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
-from app.routers import game
+from app.api.router import api_router
+from app.core.config import settings
+from app.core.exceptions import register_exception_handlers
 
 app = FastAPI(title=settings.app_name)
 
@@ -14,10 +15,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-app.include_router(game.router)
+register_exception_handlers(app)
+app.include_router(api_router)
