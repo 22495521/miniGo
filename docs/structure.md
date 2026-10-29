@@ -4,7 +4,11 @@
 
 ```
 miniGO/
-├── CLAUDE.md, docs/      給 AI 的指引
+├── CLAUDE.md, docs/      給 AI 的指引（docs/encoders.md 例外，是給人看的範例）
+├── dl/                  圍棋 AI 與訓練，獨立的 uv 專案，見 dl.md
+│   ├── dlgo/            棋盤、計分、agent、encoders/、data/（資料管線）、gosgf/（SGF 解析）
+│   ├── load_kgs.py、check_data.py、generate_zobrist.py   可直接執行的腳本
+│   └── data/、generated_games/   訓練資料，不進 git
 ├── backend/app/          FastAPI，匯入一律從 app. 開頭
 │   ├── main.py           只建立 app、掛 middleware、例外處理與 router
 │   ├── core/             設定（config.py）與業務例外及其 handler（exceptions.py）
@@ -19,4 +23,4 @@ miniGO/
     └── assets/main.css   全域樣式與 CSS 變數（含深色模式）
 ```
 
-外部相依：同層的 `../go_example`（圍棋引擎 `dlgo`），見 architecture.md。
+後端引用 `dl/` 的 `dlgo` 作為圍棋引擎，見 architecture.md。

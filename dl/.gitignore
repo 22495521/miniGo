@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Training data (MCTS self-play games)
+generated_games/
+
+# KGS game records (downloaded by dlgo/data/index_processor.py)
+/data/
+kgs_index.html
+
+# Fixed test-set list written by dlgo/data/sampling.py
+test_samples.py

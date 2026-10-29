@@ -31,7 +31,7 @@ def load_nn_agent() -> None:
 def build_nn_agent(model_path: str) -> Agent:
     """模型訓練好之後在這裡建立 agent。
 
-    agent 本身建議寫在 go_example 的 dlgo/agent/（例如 dlgo/agent/predict.py），
+    agent 本身建議寫在 dl/dlgo/agent/（例如 dlgo/agent/predict.py），
     負責載入權重、用訓練時相同的編碼器編碼盤面、過濾不合法的點後選出一手。
     這裡只負責 import 並建立它，例如：
 

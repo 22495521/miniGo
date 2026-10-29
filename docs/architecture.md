@@ -22,12 +22,13 @@
 - `captures.b` 是黑棋提掉的白子數。
 - 非法的手回 400，`detail` 是中文訊息，前端直接顯示。盤面與規則以後端為準，前端不做規則判斷。
 
-## 圍棋引擎（go_example 的 dlgo）
+## 圍棋引擎（dl/ 的 dlgo）
 
-棋盤規則與機器人來自同層 `../go_example` 的 `dlgo` 套件，以 uv 的 editable path dependency 引入（`backend/pyproject.toml` 的 `[tool.uv.sources]`）。
+棋盤規則與機器人來自 `dl/` 的 `dlgo` 套件，後端以 uv 的 editable path dependency 引入（`backend/pyproject.toml` 的 `[tool.uv.sources]` 指向 `../dl`）。`dl/` 是獨立的 uv 專案，細節見 dl.md。
 
-- go_example 的修改 miniGO 會直接用到，但 `fastapi dev` 只監看 `backend/`，改了 dlgo 要手動重啟後端。
-- 不要把 dlgo 複製進 miniGO，也不要為了 miniGO 去改 go_example，除非使用者要求。
+- `dl/` 的修改後端會直接用到，但 `fastapi dev` 只監看 `backend/`，改了 dlgo 要手動重啟後端。
+- 不要把 dlgo 的程式複製進 `backend/`；也不要為了網站去改 `dl/`，除非使用者要求。
+- `Desktop/go_example` 是搬家前的舊資料夾，只當備份，不要再修改或引用它。
 - 一律使用 `dlgo.goboard_fast`。`RandomBot` 回傳的是 `dlgo.goboard.Move`，`services/game.py` 會轉成 `goboard_fast.Move`，不要混用。
 - 計分是 `dlgo.scoring` 的數子法、貼目 7.5，不判斷死子。
 ## 機器人
@@ -36,4 +37,4 @@
 
 - 隨機機器人：`random_bot`，由 `bot_for_mode()` 對應到 `/api/game/play` 的 `mode`。
 - 神經網路：後端啟動時（`main.py` 的 lifespan）呼叫 `load_nn_agent()` 載入一次。`.env` 沒設定 `NN_MODEL_PATH` 時不載入，`/api/nn` 回 503；設定了就呼叫 `build_nn_agent()`，目前尚未實作，會在啟動時直接報錯。
-- 接上模型的步驟：在 go_example 的 `dlgo/agent/` 寫好神經網路 agent（載入權重、用訓練時相同的編碼器、過濾不合法的點）→ 在 `build_nn_agent()` 裡 import 並建立 → `.env` 設定 `NN_MODEL_PATH` 與 `NN_BOARD_SIZE`。權重檔不進 git。
+- 接上模型的步驟：在 `dl/dlgo/agent/` 寫好神經網路 agent（載入權重、用訓練時相同的編碼器、過濾不合法的點）→ 在 `build_nn_agent()` 裡 import 並建立 → `.env` 設定 `NN_MODEL_PATH` 與 `NN_BOARD_SIZE`。權重檔不進 git。

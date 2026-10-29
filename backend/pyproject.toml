@@ -2,7 +2,6 @@
 name = "backend"
 version = "0.1.0"
 description = "miniGO FastAPI backend"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.162.0",
@@ -22,4 +21,4 @@ line-length = 100
 select = ["E", "F", "I", "UP"]
 
 [tool.uv.sources]
-game-of-go = { path = "../../go_example", editable = true }
+game-of-go = { path = "../dl", editable = true }
