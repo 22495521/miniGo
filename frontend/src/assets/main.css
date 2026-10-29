@@ -1,35 +1,54 @@
-@import './base.css';
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+:root {
+  --bg: #f6f3ee;
+  --surface: #ffffff;
+  --surface-hover: #f1ede6;
+  --border: #e2dcd2;
+  --text: #22201c;
+  --text-muted: #6f6a61;
+  --accent: #2f5d50;
+  --accent-hover: #264d42;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+  --board-wood: #dcb36b;
+  --board-line: #3b2a14;
+  --board-label: #5a4322;
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #181715;
+    --surface: #23211e;
+    --surface-hover: #2d2a26;
+    --border: #3a3631;
+    --text: #ece8e1;
+    --text-muted: #a39d93;
+    --accent: #5fa38f;
+    --accent-hover: #6fb39f;
+    --accent-text: #0f1a17;
+    --danger: #f2a39d;
+    --board-wood: #c99c55;
   }
 }
 
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Noto Sans TC',
+    'Microsoft JhengHei',
+    sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }

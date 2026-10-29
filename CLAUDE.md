@@ -9,6 +9,25 @@ miniGO 是全端專案，分為兩個獨立子專案：
 - `frontend/` — Vue 3 + TypeScript + Vite，含 Vue Router、Pinia、ESLint、Prettier
 - `backend/` — FastAPI，Python 相依一律由 **uv** 管理
 
+目前功能：9x9 圍棋，玩家執黑對 RandomBot（白）。
+
+## 圍棋引擎來自 go_example
+
+棋盤規則與機器人用的是同層 `../go_example` 裡的 `dlgo` 套件，以 editable path dependency 引入（見 `backend/pyproject.toml` 的 `[tool.uv.sources]`）。在 go_example 改的程式 miniGO 會直接用到，但 `fastapi dev` 只監看 `backend/`，改了 dlgo 要手動重啟後端。不要把 dlgo 的檔案複製進 miniGO。
+
+- 一律使用 `dlgo.goboard_fast`。`dlgo.agent.naive.RandomBot` 回傳的是 `dlgo.goboard.Move`，`app/game.py` 會轉成 `goboard_fast.Move`。
+- 計分是 `dlgo.scoring` 的數子法、貼目 7.5，不判斷死子。
+
+## 架構：無狀態後端
+
+後端不保存棋局。前端（Pinia store `frontend/src/stores/game.ts`）保存落子紀錄 `moves`（如 `["E5","C3","pass"]`），每次請求都整串送給後端，後端從空棋盤重下（`Game.replay`），同時驗證每一手都合法。不能只傳盤面快照，因為打劫判定需要歷史盤面。
+
+- `POST /api/game/state {size, moves}`：回傳盤面，用於開新局與悔棋。
+- `POST /api/game/play {size, moves, move}`：玩家（黑）下一手，沒終局的話機器人接著回一手。
+- 座標格式與 `dlgo.utils.COLS` 相同（跳過 I），第 1 行在最下面。回傳的 `board[0]` 是最上面一行（第 size 行）。
+- 非法的手回 400，`detail` 是中文訊息，前端直接顯示。
+- `captures.b` 是黑棋提掉的白子數。
+
 ## 常用指令
 
 後端（在 `backend/` 執行）：
