@@ -2,6 +2,8 @@
 
 本檔案提供 Claude Code 在此專案中工作的指引。
 
+- 使用者以繁體中文溝通，commit 訊息與程式註解都用繁體中文。
+
 ## 專案概觀
 
 miniGO 是全端專案，分為兩個獨立子專案：
@@ -17,6 +19,7 @@ miniGO 是全端專案，分為兩個獨立子專案：
 
 - 一律使用 `dlgo.goboard_fast`。`dlgo.agent.naive.RandomBot` 回傳的是 `dlgo.goboard.Move`，`app/services/game.py` 會轉成 `goboard_fast.Move`。
 - 計分是 `dlgo.scoring` 的數子法、貼目 7.5，不判斷死子。
+- 機器人是 `services/game.py` 模組層級的 `bot`，之後換成訓練好的模型時只要改這裡。
 
 ## 架構：無狀態後端
 
@@ -28,17 +31,25 @@ miniGO 是全端專案，分為兩個獨立子專案：
 - 非法的手回 400，`detail` 是中文訊息，前端直接顯示。
 - `captures.b` 是黑棋提掉的白子數。
 
+前端檔案分工：
+
+- `src/api/game.ts`：API 型別與 fetch 函式。
+- `src/stores/game.ts`：對局狀態與動作（新局、落子、悔棋），悔棋是退回到上一次輪到黑棋的時候。
+- `src/components/GoBoard.vue`：SVG 棋盤，只負責畫和發出 `play` 事件，不做規則判斷。
+- `src/views/HomeView.vue`：對局頁面與側邊面板。
+- 顏色都用 `src/assets/main.css` 的 CSS 變數，深色模式在同一檔的 `prefers-color-scheme: dark` 裡覆寫。
+
 ## 常用指令
 
 後端（在 `backend/` 執行）：
 
 ```bash
-uv sync                                          # 安裝相依
-uv add <package>                                 # 新增套件（不要用 pip）
-uv add --dev <package>                           # 新增開發相依
-uv run fastapi dev           # 啟動開發伺服器（自動找到 app/main.py，port 8000，熱重載）
-uv run fastapi run           # 正式模式啟動
-uv run ruff check . && uv run ruff format .   # lint 與格式化
+uv sync                                      # 安裝相依
+uv add <package>                             # 新增套件（不要用 pip）
+uv add --dev <package>                       # 新增開發相依
+uv run fastapi dev                           # 開發伺服器（自動找到 app/main.py，port 8000，熱重載）
+uv run fastapi run                           # 正式模式啟動
+uv run ruff check . && uv run ruff format .  # lint 與格式化
 ```
 
 前端（在 `frontend/` 執行）：
@@ -69,3 +80,14 @@ npm run format
 ## 完成前的驗證
 
 改到後端就跑 `uv run ruff check .`；改到前端就跑 `npm run build` 與 `npm run lint`。確認通過後再回報完成。
+
+專案刻意不寫自動化測試。改到 API 時，對執行中的後端實際打 `/api/game/state`、`/api/game/play` 確認行為。
+
+## 開發環境（Windows）
+
+- 使用者通常已在 VS Code 終端機開著後端（8000）與前端（5173）。不要關掉或重啟它們，直接對它們測試；需要另開伺服器時改用別的 port，用完要關掉。
+- 這台機器的 `C:
+vm4w
+odejs
+pm.ps1`、`npx.ps1` 已改名成 `.bak`，讓 PowerShell 在不改 Execution Policy 的情況下改用 `npm.cmd`。用 nvm 切換 Node 版本後可能要再改一次。
+- Git Bash 裡 Python 輸出中文會變亂碼（cp950），執行時加上 `PYTHONIOENCODING=utf-8`，或改用 PowerShell。
