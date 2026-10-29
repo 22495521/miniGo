@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.schemas.game import GameResponse, PlayRequest, StateRequest
+from app.services.bots import bot_for_mode
 from app.services.game import Game
 
 router = APIRouter(prefix="/game", tags=["game"])
@@ -16,5 +17,5 @@ def get_state(req: StateRequest) -> GameResponse:
 def play(req: PlayRequest) -> GameResponse:
     """下一手；機器人模式下，RandomBot（白）會接著回一手。"""
     game = Game.replay(req.size, req.moves)
-    game.play_turn(req.move, req.mode)
+    game.play_turn(req.move, bot_for_mode(req.mode))
     return game.to_response()

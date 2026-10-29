@@ -6,7 +6,7 @@
 
 - **Python 一律透過 uv**，不要使用 `pip`、`python -m venv`，也不要手動編輯 `uv.lock`。
 - route 只做「收 request → 呼叫 service → 回 response」；規則判斷放在 service（例如輪到誰由 `Game.play_turn()` 檢查）。
-- service 遇到業務錯誤就丟 `core/exceptions.py` 裡的例外，由那裡的 handler 統一轉成 HTTP 回應，route 裡不寫 try/except。
+- service 遇到業務錯誤就丟 `core/exceptions.py` 裡的例外，由那裡的 handler 統一轉成 HTTP 回應，route 裡不寫 try/except。新增例外時加進同檔的 `STATUS_CODES`（例外類別 → 狀態碼）。
 - 設定值放在 `core/config.py` 的 `Settings`，由 `.env` 讀取；新增設定時同步更新 `.env.example`。
 
 ## 前端

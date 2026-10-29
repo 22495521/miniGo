@@ -4,17 +4,15 @@
 """
 
 from dlgo import goboard_fast as goboard
-from dlgo.agent.naive import RandomBot
+from dlgo.agent.base import Agent
 from dlgo.gotypes import Player, Point
 from dlgo.scoring import compute_game_result
 from dlgo.utils import COLS
 
 from app.core.exceptions import IllegalMoveError
-from app.schemas.game import Captures, GameResponse, Mode
+from app.schemas.game import Captures, GameResponse
 
 PLAYER_CODE = {Player.black: "b", Player.white: "w"}
-
-bot = RandomBot()
 
 
 class Game:
@@ -42,20 +40,21 @@ class Game:
             raise IllegalMoveError("這裡不能下（已有棋子、自殺或打劫）")
         self.apply(move)
 
-    def play_turn(self, text: str, mode: Mode) -> None:
-        """練習模式只下這一手；機器人模式由玩家（黑）下，對局沒結束的話機器人（白）接著回一手。"""
-        if mode == "practice":
+    def play_turn(self, text: str, bot: Agent | None) -> None:
+        """沒有機器人（練習模式）時只下這一手；有的話由玩家（黑）下，
+        對局沒結束的話機器人（白）接著回一手。"""
+        if bot is None:
             self.play(text)
             return
         if self.state.next_player != Player.black:
             raise IllegalMoveError("現在不是黑棋的回合")
         self.play(text)
         if not self.state.is_over():
-            self.play_bot()
+            self.play_bot(bot)
 
-    def play_bot(self) -> None:
+    def play_bot(self, bot: Agent) -> None:
         move = bot.select_move(self.state)
-        # RandomBot 回傳的是 dlgo.goboard.Move，轉成 goboard_fast 的 Move
+        # agent 回傳的 Move 可能來自 dlgo.goboard（例如 RandomBot），統一轉成 goboard_fast 的 Move
         self.apply(goboard.Move(point=move.point, is_pass=move.is_pass, is_resign=move.is_resign))
 
     def apply(self, move: goboard.Move) -> None:

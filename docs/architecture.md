@@ -13,6 +13,8 @@
   - `mode: "bot"`（預設）：只能在輪到黑棋時下，沒終局的話機器人（白）接著回一手。
   - `mode: "practice"`：沒有機器人，替輪到的一方下這一手。
 - `size` 只接受 9、13、19（`schemas/game.py` 的 `BoardSize`），其他值回 422。
+- `GET /api/nn/status`：神經網路模型是否已載入（`ready`）與支援的棋盤大小。
+- `POST /api/nn/play {size, moves, move}`：玩家（黑）下一手，神經網路（白）接著回一手。模型未載入回 503，`size` 與 `NN_BOARD_SIZE` 不同回 400。前端尚未串接。
 
 回傳格式定義在 `backend/app/schemas/game.py`，前端型別在 `frontend/src/api/game.ts`，兩邊要同步修改。容易弄錯的地方：
 
@@ -28,4 +30,10 @@
 - 不要把 dlgo 複製進 miniGO，也不要為了 miniGO 去改 go_example，除非使用者要求。
 - 一律使用 `dlgo.goboard_fast`。`RandomBot` 回傳的是 `dlgo.goboard.Move`，`services/game.py` 會轉成 `goboard_fast.Move`，不要混用。
 - 計分是 `dlgo.scoring` 的數子法、貼目 7.5，不判斷死子。
-- 機器人是 `services/game.py` 模組層級的 `bot`。之後換成訓練好的模型時改這裡，推論用的編碼器必須跟訓練時相同（直接用 `dlgo.encoders`）。
+## 機器人
+
+所有機器人都是 dlgo 的 `Agent`（提供 `select_move(game_state)`），集中在 `services/bots.py`；`Game.play_turn(text, bot)` 收到 `None` 就是練習模式。
+
+- 隨機機器人：`random_bot`，由 `bot_for_mode()` 對應到 `/api/game/play` 的 `mode`。
+- 神經網路：後端啟動時（`main.py` 的 lifespan）呼叫 `load_nn_agent()` 載入一次。`.env` 沒設定 `NN_MODEL_PATH` 時不載入，`/api/nn` 回 503；設定了就呼叫 `build_nn_agent()`，目前尚未實作，會在啟動時直接報錯。
+- 接上模型的步驟：在 go_example 的 `dlgo/agent/` 寫好神經網路 agent（載入權重、用訓練時相同的編碼器、過濾不合法的點）→ 在 `build_nn_agent()` 裡 import 並建立 → `.env` 設定 `NN_MODEL_PATH` 與 `NN_BOARD_SIZE`。權重檔不進 git。
