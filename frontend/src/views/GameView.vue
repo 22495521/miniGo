@@ -1,28 +1,47 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import GoBoard from '@/components/GoBoard.vue'
+import type { Mode } from '@/api/game'
 import { useGameStore } from '@/stores/game'
 
-const game = useGameStore()
-const { state, loading, error } = storeToRefs(game)
+const props = defineProps<{ mode: Mode }>()
 
-onMounted(() => {
-  if (!state.value) game.newGame()
+const game = useGameStore()
+const { size, state, loading, error } = storeToRefs(game)
+
+// 兩個模式共用這個元件，切換路由時只會換掉 mode
+watch(
+  () => props.mode,
+  (mode) => game.setMode(mode),
+  { immediate: true },
+)
+
+const isBot = computed(() => props.mode === 'bot')
+
+const title = computed(() => (isBot.value ? '隨機機器人' : '練習模式'))
+const subtitle = computed(() => {
+  const board = `${size.value}×${size.value}`
+  return isBot.value ? `${board} · 你執黑，對手是 RandomBot` : `${board} · 自己輪流下黑白兩方`
 })
+
+const playerName = (color: 'b' | 'w') => {
+  if (!isBot.value) return color === 'b' ? '黑' : '白'
+  return color === 'b' ? '你（黑）' : '機器人（白）'
+}
 
 const status = computed(() => {
   const s = state.value
   if (!s) return ''
   if (s.is_over) return resultText(s.result)
-  if (loading.value) return '機器人思考中…'
-  return s.next_player === 'b' ? '輪到你（黑）' : '輪到機器人（白）'
+  if (loading.value && isBot.value) return '機器人思考中…'
+  return `輪到${playerName(s.next_player)}`
 })
 
 function resultText(result: string | null) {
   if (!result) return '對局結束'
   const [winner, margin] = result.split('+')
-  const who = winner === 'B' ? '你（黑）' : '機器人（白）'
+  const who = playerName(winner === 'B' ? 'b' : 'w')
   return margin === 'R' ? `${who}中盤勝` : `${who}勝 ${margin} 目`
 }
 
@@ -42,6 +61,7 @@ const lastMoves = computed(() => {
         v-if="state"
         :board="state.board"
         :last-move="state.last_move"
+        :next-player="state.next_player"
         :disabled="loading || state.is_over"
         @play="game.play"
       />
@@ -49,8 +69,8 @@ const lastMoves = computed(() => {
 
     <aside class="panel">
       <header>
-        <h1>miniGO</h1>
-        <p class="sub">9×9 · 你執黑，對手是 RandomBot</p>
+        <h1>{{ title }}</h1>
+        <p class="sub">{{ subtitle }}</p>
       </header>
 
       <p class="status" :class="{ over: state?.is_over }" aria-live="polite">{{ status }}</p>
@@ -129,7 +149,7 @@ const lastMoves = computed(() => {
 }
 
 h1 {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }

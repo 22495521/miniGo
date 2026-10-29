@@ -1,6 +1,6 @@
 # miniGO
 
-Vue 3 前端 + FastAPI 後端的圍棋對弈網站，目前是 9x9 對 RandomBot。
+Vue 3 前端 + FastAPI 後端的圍棋對弈網站，可以對隨機機器人或練習模式（自己下黑白），棋盤有 9、13、19 路。
 
 圍棋引擎（`dlgo`）來自同層的 `../go_example`，後端以 uv 的 editable path dependency 引入，所以兩個資料夾要放在一起。
 

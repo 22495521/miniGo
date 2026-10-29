@@ -5,6 +5,7 @@ import type { Stone } from '@/api/game'
 const props = defineProps<{
   board: (Stone | null)[][]
   lastMove: string | null
+  nextPlayer: Stone
   disabled: boolean
 }>()
 
@@ -105,7 +106,7 @@ function onClick(i: number, j: number) {
       :cx="pos(hover.j)"
       :cy="pos(hover.i)"
       :r="CELL * 0.46"
-      fill="url(#stone-b)"
+      :fill="`url(#stone-${nextPlayer})`"
     />
 
     <g v-for="s in stones" :key="s.coord">

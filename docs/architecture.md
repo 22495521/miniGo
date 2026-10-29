@@ -9,7 +9,10 @@
 ## API
 
 - `POST /api/game/state {size, moves}`：回傳盤面，用於開新局與悔棋。
-- `POST /api/game/play {size, moves, move}`：玩家（黑）下一手，沒終局的話機器人（白）接著回一手。`move` 可以是 `E5`、`pass`、`resign`。
+- `POST /api/game/play {size, moves, move, mode}`：下一手，`move` 可以是 `E5`、`pass`、`resign`。
+  - `mode: "bot"`（預設）：只能在輪到黑棋時下，沒終局的話機器人（白）接著回一手。
+  - `mode: "practice"`：沒有機器人，替輪到的一方下這一手。
+- `size` 只接受 9、13、19（`schemas/game.py` 的 `BoardSize`），其他值回 422。
 
 回傳格式定義在 `backend/app/schemas/game.py`，前端型別在 `frontend/src/api/game.ts`，兩邊要同步修改。容易弄錯的地方：
 

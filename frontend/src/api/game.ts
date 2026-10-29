@@ -1,4 +1,9 @@
 export type Stone = 'b' | 'w'
+// bot：玩家執黑對機器人；practice：沒有機器人，玩家輪流下黑白兩方
+export type Mode = 'bot' | 'practice'
+export type BoardSize = 9 | 13 | 19
+
+export const BOARD_SIZES: BoardSize[] = [9, 13, 19]
 
 export interface GameState {
   size: number
@@ -25,10 +30,10 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T
 }
 
-export function fetchState(size: number, moves: string[]) {
+export function fetchState(size: BoardSize, moves: string[]) {
   return post<GameState>('/state', { size, moves })
 }
 
-export function playMove(size: number, moves: string[], move: string) {
-  return post<GameState>('/play', { size, moves, move })
+export function playMove(size: BoardSize, moves: string[], move: string, mode: Mode) {
+  return post<GameState>('/play', { size, moves, move, mode })
 }

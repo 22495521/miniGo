@@ -14,7 +14,7 @@ def get_state(req: StateRequest) -> GameResponse:
 
 @router.post("/play")
 def play(req: PlayRequest) -> GameResponse:
-    """玩家（黑）下一手，對局沒結束的話 RandomBot（白）接著回一手。"""
+    """下一手；機器人模式下，RandomBot（白）會接著回一手。"""
     game = Game.replay(req.size, req.moves)
-    game.play_turn(req.move)
+    game.play_turn(req.move, req.mode)
     return game.to_response()

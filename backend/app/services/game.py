@@ -10,7 +10,7 @@ from dlgo.scoring import compute_game_result
 from dlgo.utils import COLS
 
 from app.core.exceptions import IllegalMoveError
-from app.schemas.game import Captures, GameResponse
+from app.schemas.game import Captures, GameResponse, Mode
 
 PLAYER_CODE = {Player.black: "b", Player.white: "w"}
 
@@ -42,8 +42,11 @@ class Game:
             raise IllegalMoveError("這裡不能下（已有棋子、自殺或打劫）")
         self.apply(move)
 
-    def play_turn(self, text: str) -> None:
-        """玩家（黑）下一手，對局沒結束的話機器人（白）接著回一手。"""
+    def play_turn(self, text: str, mode: Mode) -> None:
+        """練習模式只下這一手；機器人模式由玩家（黑）下，對局沒結束的話機器人（白）接著回一手。"""
+        if mode == "practice":
+            self.play(text)
+            return
         if self.state.next_player != Player.black:
             raise IllegalMoveError("現在不是黑棋的回合")
         self.play(text)

@@ -1,16 +1,20 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 Stone = Literal["b", "w"]
+BoardSize = Literal[9, 13, 19]
+# bot：玩家執黑對機器人；practice：沒有機器人，玩家輪流下黑白兩方
+Mode = Literal["bot", "practice"]
 
 
 class StateRequest(BaseModel):
-    size: int = Field(default=9, ge=5, le=19)
+    size: BoardSize = 9
     moves: list[str] = []
 
 
 class PlayRequest(StateRequest):
+    mode: Mode = "bot"
     move: str
 
 
