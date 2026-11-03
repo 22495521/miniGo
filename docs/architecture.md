@@ -36,5 +36,6 @@
 所有機器人都是 dlgo 的 `Agent`（提供 `select_move(game_state)`），集中在 `services/bots.py`；`Game.play_turn(text, bot)` 收到 `None` 就是練習模式。
 
 - 隨機機器人：`random_bot`，由 `bot_for_mode()` 對應到 `/api/game/play` 的 `mode`。
-- 神經網路：後端啟動時（`main.py` 的 lifespan）呼叫 `load_nn_agent()` 載入一次。`.env` 沒設定 `NN_MODEL_PATH` 時不載入，`/api/nn` 回 503；設定了就呼叫 `build_nn_agent()`，目前尚未實作，會在啟動時直接報錯。
-- 接上模型的步驟：在 `dl/dlgo/agent/` 寫好神經網路 agent（載入權重、用訓練時相同的編碼器、過濾不合法的點）→ 在 `build_nn_agent()` 裡 import 並建立 → `.env` 設定 `NN_MODEL_PATH` 與 `NN_BOARD_SIZE`。權重檔不進 git。
+- 神經網路：後端啟動時（`main.py` 的 lifespan）呼叫 `load_nn_agent()` 載入一次。`.env` 沒設定 `NN_MODEL_PATH` 時不載入，`/api/nn` 回 503；設定了就由 `build_nn_agent()` 用 `dlgo.agent.predict.load_prediction_agent` 讀 `dl/train_cnn.py` 存的權重檔（例如 `NN_MODEL_PATH=../dl/models/cnn_simple_5300.pt`，相對於 `backend/`）。編碼器與棋盤大小記在權重檔裡；棋盤大小跟 `NN_BOARD_SIZE` 不同時啟動就報錯。權重檔不進 git。
+- 因此後端的一般相依有 **torch**（`dl/` 那邊只是 dev 相依）。`dlgo.agent.predict` 只在 `build_nn_agent()` 裡 import，沒設定模型時不會載入 torch。換模型只要改 `.env` 並重啟後端（`fastapi dev` 不會因 `.env` 改變而重載）。
+- `NN_BOARD_SIZE` 在 `Settings` 裡是 `int` 加驗證，不能用 `Literal[9, 13, 19]`：從 `.env` 讀到的是字串，Literal 不會轉型，啟動會失敗。

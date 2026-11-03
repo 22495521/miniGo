@@ -49,7 +49,8 @@
 - 資料分三份，用途不能混：**訓練集**更新權重；**驗證集**從訓練分塊以固定種子切出 `--val-ratio`（預設 0.1，以分塊檔為單位），每輪評估一次、保留驗證準確率最好的一輪；**測試集**是固定 100 盤（`load_kgs.py --test`），全部訓練完才用最好的模型評估一次，不參與挑模型。沒有測試分塊時跳過測試。分塊檔太少切不出驗證集時會停止。以分塊切驗證集時，跨兩個分塊的那盤棋會同時出現在訓練與驗證，影響很小。
 - 程式依階段分成 `load_datasets` → `train_one_epoch`（訓練）→ `evaluate`（驗證與測試共用，`model.eval()` + `no_grad`）→ `save_model` / `load_model`，`main` 依序呼叫。
 - 存檔是 dict：`model`（state_dict）與 `config`（`encoder`、`board_size`、`num_planes`、`channels`、`layers`），用 `load_model(path, device)` 讀回。預設存到 `models/cnn_<編碼器>_<盤數>.pt`。
-- `GoCNN`、`save_model`、`load_model` 定義在 `dlgo/cnn.py`，之後下棋的 agent 也要引用同一份，改網路結構只改那裡。依賴 torch，所以沒放進 `dlgo/__init__.py`。舊的權重檔要跟當時的結構相符才讀得回來。
+- `GoCNN`、`save_model`、`load_model` 定義在 `dlgo/cnn.py`，`train_cnn.py` 與下棋的 agent 共用，改網路結構只改那裡。舊的權重檔要跟當時的結構相符才讀得回來。
+- `dlgo/agent/predict.py` 的 `PredictionAgent`：用權重檔裡記的編碼器編碼盤面，照機率由高到低挑第一個合法、且不填自己眼的點，都不行才 pass（模型不懂規則，機率最高的點可能不能下）。永遠挑最高的，所以同樣的局面一定下同一手。用 `load_prediction_agent(path)` 建立；網站後端就是這樣接上的（見 architecture.md）。`dlgo/cnn.py` 和它都依賴 torch，所以沒放進各自的 `__init__.py`。
 - 判斷 `DataLoader` 是否存在要寫 `is not None`：包 `IterableDataset` 的 `DataLoader` 沒有長度，當成 bool 會呼叫 `len()` 而出錯。
 
 ## 訓練資料

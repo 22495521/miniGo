@@ -29,18 +29,20 @@ def load_nn_agent() -> None:
 
 
 def build_nn_agent(model_path: str) -> Agent:
-    """模型訓練好之後在這裡建立 agent。
+    """讀 dl/train_cnn.py 存的權重檔，建立落子預測 agent。
 
-    agent 本身建議寫在 dl/dlgo/agent/（例如 dlgo/agent/predict.py），
-    負責載入權重、用訓練時相同的編碼器編碼盤面、過濾不合法的點後選出一手。
-    這裡只負責 import 並建立它，例如：
-
-        from dlgo.agent.predict import load_prediction_agent
-        return load_prediction_agent(model_path)
+    編碼器與棋盤大小記在權重檔裡，agent 會用訓練時相同的編碼器。
+    torch 很大，只在有設定模型時才 import。
     """
-    raise NotImplementedError(
-        f"已設定 NN_MODEL_PATH={model_path}，但 app/services/bots.py 的 build_nn_agent() 還沒實作"
-    )
+    from dlgo.agent.predict import load_prediction_agent
+
+    agent = load_prediction_agent(model_path)
+    if agent.board_size != settings.nn_board_size:
+        raise ValueError(
+            f"{model_path} 是用 {agent.board_size} 路棋盤訓練的，"
+            f"但 NN_BOARD_SIZE={settings.nn_board_size}"
+        )
+    return agent
 
 
 def get_nn_agent(size: int) -> Agent:
