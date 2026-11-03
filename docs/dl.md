@@ -44,12 +44,12 @@
 
 ## 訓練（`train_cnn.py`）
 
-- 落子預測（policy）網路 `GoCNN`：全卷積，第一層 5x5、其餘 3x3，都有 BatchNorm + ReLU 並用 padding 保持盤面大小，最後 1x1 卷積壓成每點一個分數、攤平成 `H*W` 個 logits。不接全連接層，所以盤面大小不寫死。
+- 落子預測（policy）網路 `GoCNN`：全卷積、固定 6 層（第一層 5x5、其餘 3x3），都有 BatchNorm + ReLU 並用 padding 保持盤面大小，最後 1x1 卷積壓成每點一個分數、攤平成 `H*W` 個 logits。不接全連接層，所以盤面大小不寫死。
 - 資料用 `ChunkDataset` 逐塊讀分塊檔，需要先 `load_kgs.py --chunks-only`（或一般模式，分塊檔一樣會留著）。`-n`、`-e` 必須跟 `load_kgs.py` 相同：`-n` 決定抽到哪些棋局；分塊檔沒有記錄編碼器，所以啟動時用第一筆資料的形狀跟 `-e` 的 `encoder.shape()` 比對，不同就停止。測試分塊也要檢查：它只有加 `--test` 才會重新產生，換編碼器後沒加 `--test` 會留著舊編碼器的測試分塊，不先檢查會訓練完才在測試時出錯。
 - 資料分三份，用途不能混：**訓練集**更新權重；**驗證集**從訓練分塊以固定種子切出 `--val-ratio`（預設 0.1，以分塊檔為單位），每輪評估一次、保留驗證準確率最好的一輪；**測試集**是固定 100 盤（`load_kgs.py --test`），全部訓練完才用最好的模型評估一次，不參與挑模型。沒有測試分塊時跳過測試。分塊檔太少切不出驗證集時會停止。以分塊切驗證集時，跨兩個分塊的那盤棋會同時出現在訓練與驗證，影響很小。
-- 程式依階段分成 `load_datasets` → `train_one_epoch`（訓練）→ `evaluate`（驗證與測試共用，`model.eval()` + `no_grad`）→ `save_model` / `load_model`，`main` 依序呼叫。
-- 存檔是 dict：`model`（state_dict）與 `config`（`encoder`、`board_size`、`num_planes`、`channels`、`layers`），用 `load_model(path, device)` 讀回。預設存到 `models/cnn_<編碼器>_<盤數>.pt`。
-- `GoCNN`、`save_model`、`load_model` 定義在 `dlgo/cnn.py`，`train_cnn.py` 與下棋的 agent 共用，改網路結構只改那裡。舊的權重檔要跟當時的結構相符才讀得回來。
+- 程式依階段分成 `load_datasets` → `train_one_epoch`（訓練）→ `evaluate`（驗證與測試共用，`model.eval()` + `no_grad`）→ `save_model` / `load_model`，`main` 依序呼叫。輸出格式照 `dlgo/cnn.py` 同一個範例：每 `PRINT_EVERY`（1000）個 batch 印 `[epoch, batch] loss`，每輪印 `[Epoch n Train]`／`[Epoch n Val  ]`，最後 `[Test Result] loss | Accuracy: xx.xx% (正確數/總數)`；`train_one_epoch`、`evaluate` 回傳 `(平均 loss, 正確數, 總數)`。
+- 存檔是 dict：`model`（state_dict）與 `config`（`encoder`、`board_size`、`num_planes`、`channels`），用 `load_model(path, device)` 讀回。預設存到 `models/cnn_<編碼器>_<盤數>.pt`。
+- `GoCNN`、`save_model`、`load_model` 定義在 `dlgo/cnn.py`，`train_cnn.py` 與下棋的 agent 共用，改網路結構只改那裡。寫法照使用者指定的範例（https://github.com/22495521/CNN_test/blob/main/main.py）：每層在 `__init__` 明確寫成 `conv1`、`bn1`…，`forward` 逐層呼叫，所以層數寫死、沒有 `--layers`；存讀檔會印出訊息。舊版用 `nn.Sequential`（權重名稱是 `body.0` 等），`load_model` 會用 `_rename_old_keys` 轉成新名稱，舊權重檔照樣能讀；改層的名稱或數量時要一併處理。
 - `dlgo/agent/predict.py` 的 `PredictionAgent`：用權重檔裡記的編碼器編碼盤面，照機率由高到低挑第一個合法、且不填自己眼的點，都不行才 pass（模型不懂規則，機率最高的點可能不能下）。永遠挑最高的，所以同樣的局面一定下同一手。用 `load_prediction_agent(path)` 建立；網站後端就是這樣接上的（見 architecture.md）。`dlgo/cnn.py` 和它都依賴 torch，所以沒放進各自的 `__init__.py`。
 - 判斷 `DataLoader` 是否存在要寫 `is not None`：包 `IterableDataset` 的 `DataLoader` 沒有長度，當成 bool 會呼叫 `len()` 而出錯。
 

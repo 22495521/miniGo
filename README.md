@@ -104,7 +104,7 @@ uv run python train_cnn.py -n 100 -e tenplane --epochs 10            # -n、-e �
 | `--epochs` | 訓練幾輪 | 10 |
 | `--batch-size` | 每批幾個盤面 | 128 |
 | `--lr` | 學習率（Adam） | 0.001 |
-| `--channels`、`--layers` | 每層卷積通道數、卷積層數 | 64、6 |
+| `--channels` | 每層卷積的通道數（層數固定 6 層，寫在 `dlgo/cnn.py`） | 64 |
 | `--val-ratio` | 從訓練資料切出多少比例當驗證集 | 0.1 |
 | `--workers` | 讀資料的 process 數，0 表示在主程式讀 | 2 |
 | `--out` | 權重存檔路徑 | `models/cnn_<編碼器>_<盤數>.pt` |

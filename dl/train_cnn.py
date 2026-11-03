@@ -75,49 +75,68 @@ def make_loader(dataset, batch_size, workers, device):
 
 
 # ============================================================
-# 訓練：跑過一次訓練集，更新權重
+# 訓練與評估
 # ============================================================
+PRINT_EVERY = 1000   # 每幾個 batch 印一次平均 loss（一輪約 7000 個 batch）
 
-def train_one_epoch(model, loader, loss_fn, optimizer, device):
+
+def train_one_epoch(model, loader, loss_fn, optimizer, device, epoch):
+    """跑過一次訓練集、更新權重。回傳 (平均 loss, 正確數, 總數)"""
     model.train()
-    total_loss = correct = count = 0
+    running_loss = 0.0
+    total_loss = 0.0
+    correct = 0
+    total = 0
 
-    for x, y in loader:
-        x, y = x.to(device), y.to(device)
+    for i, (inputs, labels) in enumerate(loader):
+        inputs, labels = inputs.to(device), labels.to(device)
 
-        logits = model(x)
-        loss = loss_fn(logits, y)
-
+        # zero the parameter gradients
         optimizer.zero_grad()
+
+        # forward + backward + optimize
+        outputs = model(inputs)
+        loss = loss_fn(outputs, labels)
         loss.backward()
         optimizer.step()
 
-        total_loss += loss.item() * len(y)
-        correct += (logits.argmax(1) == y).sum().item()
-        count += len(y)
+        # print statistics
+        running_loss += loss.item()
+        total_loss += loss.item() * labels.size(0)
+        _, predicted = outputs.max(1)
+        total += labels.size(0)
+        correct += predicted.eq(labels).sum().item()
+        if i % PRINT_EVERY == PRINT_EVERY - 1:
+            print(f'[{epoch}, {i + 1:5d}] loss: {running_loss / PRINT_EVERY:.3f}')
+            running_loss = 0.0
 
-    return total_loss / count, correct / count
+    return total_loss / total, correct, total
 
-
-# ============================================================
-# 評估：不更新權重，只算 loss 和準確率（驗證集、測試集共用）
-# ============================================================
 
 @torch.no_grad()
 def evaluate(model, loader, loss_fn, device):
+    """不更新權重，只算 loss 和正確數（驗證集、測試集共用）。回傳 (平均 loss, 正確數, 總數)"""
     model.eval()   # BatchNorm 改用訓練時累積的統計值
-    total_loss = correct = count = 0
+    test_loss = 0.0
+    correct = 0
+    total = 0
 
-    for x, y in loader:
-        x, y = x.to(device), y.to(device)
+    for inputs, labels in loader:
+        inputs, labels = inputs.to(device), labels.to(device)
 
-        logits = model(x)
+        outputs = model(inputs)
+        loss = loss_fn(outputs, labels)
 
-        total_loss += loss_fn(logits, y).item() * len(y)
-        correct += (logits.argmax(1) == y).sum().item()
-        count += len(y)
+        test_loss += loss.item() * labels.size(0)
+        _, predicted = outputs.max(1)
+        total += labels.size(0)
+        correct += predicted.eq(labels).sum().item()
 
-    return total_loss / count, correct / count
+    return test_loss / total, correct, total
+
+
+def result_text(loss, correct, total):
+    return f'loss: {loss:.3f} | Accuracy: {100. * correct / total:.2f}% ({correct}/{total})'
 
 
 # ============================================================
@@ -132,7 +151,6 @@ def parse_args():
     parser.add_argument('--batch-size', type=int, default=128)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--channels', type=int, default=64, help='每層卷積的通道數')
-    parser.add_argument('--layers', type=int, default=6, help='卷積層數')
     parser.add_argument('--val-ratio', type=float, default=0.1, help='從訓練分塊切出多少比例當驗證集')
     parser.add_argument('--workers', type=int, default=2, help='DataLoader 的 worker 數，0 表示在主程式讀')
     parser.add_argument('--out', default=None, help='權重存檔路徑，預設 models/cnn_<編碼器>_<盤數>.pt')
@@ -156,14 +174,14 @@ def main():
     train_loader = make_loader(train_set, args.batch_size, args.workers, device)
     val_loader = make_loader(val_set, args.batch_size * 2, args.workers, device)
 
-    print('裝置 %s，盤面 %s' % (device, (num_planes, height, width)))
+    print(f'使用裝置: {device}，盤面 {(num_planes, height, width)}')
     print('分塊檔：訓練 %d、驗證 %d、測試 %s'
           % (len(train_set.files), len(val_set.files), len(test_set.files) if test_set is not None else '無'))
 
     # ---- 2. 建立模型 ----
     config = {'encoder': args.encoder, 'board_size': height, 'num_planes': num_planes,
-              'channels': args.channels, 'layers': args.layers}
-    model = GoCNN(num_planes, args.channels, args.layers).to(device)
+              'channels': args.channels}
+    model = GoCNN(num_planes, args.channels).to(device)   # 層數寫死在 dlgo/cnn.py（6 層）
     loss_fn = nn.CrossEntropyLoss()   # labels 是落點索引，直接用，不需要 one-hot
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
@@ -171,18 +189,18 @@ def main():
     best_val_acc = -1.0
     for epoch in range(1, args.epochs + 1):
         start = time.time()
-        train_loss, train_acc = train_one_epoch(model, train_loader, loss_fn, optimizer, device)
-        val_loss, val_acc = evaluate(model, val_loader, loss_fn, device)
+        train_loss, train_correct, train_total = train_one_epoch(model, train_loader, loss_fn, optimizer, device, epoch)
+        val_loss, val_correct, val_total = evaluate(model, val_loader, loss_fn, device)
 
-        saved = ''
+        print(f'[Epoch {epoch} Train] {result_text(train_loss, train_correct, train_total)}')
+        print(f'[Epoch {epoch} Val  ] {result_text(val_loss, val_correct, val_total)}  ({time.time() - start:.0f} 秒)')
+        val_acc = val_correct / val_total
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             save_model(out, model, config)
-            saved = '  → 存檔'
-        print('epoch %2d  訓練 loss %.3f acc %.3f  驗證 loss %.3f acc %.3f  (%.0f 秒)%s'
-              % (epoch, train_loss, train_acc, val_loss, val_acc, time.time() - start, saved))
 
-    print('最好的驗證準確率 %.3f，模型存在 %s' % (best_val_acc, out))
+    print('Finished Training')
+    print(f'最好的驗證準確率: {100. * best_val_acc:.2f}%，模型存在 {out}')
 
     # ---- 4. 測試：載入最好的模型，用沒看過的測試集評估一次 ----
     if test_set is None:
@@ -190,8 +208,10 @@ def main():
         return
     best_model, _ = load_model(out, device)
     test_loader = make_loader(test_set, args.batch_size * 2, args.workers, device)
-    test_loss, test_acc = evaluate(best_model, test_loader, loss_fn, device)
-    print('測試 loss %.3f acc %.3f' % (test_loss, test_acc))
+    print('開始評估...')
+    test_loss, test_correct, test_total = evaluate(best_model, test_loader, loss_fn, device)
+    print(f'\n[Test Result] {result_text(test_loss, test_correct, test_total)}')
+    print('Finished Testing')
 
 
 if __name__ == '__main__':   # Windows 上 DataLoader 用多個 worker 時一定要有
