@@ -6,9 +6,10 @@
 miniGO/
 ├── CLAUDE.md, docs/      給 AI 的指引（docs/encoders.md 例外，是給人看的範例）
 ├── dl/                  圍棋 AI 與訓練，獨立的 uv 專案，見 dl.md
-│   ├── dlgo/            棋盤、計分、agent、encoders/、data/（資料管線）、gosgf/（SGF 解析）
-│   ├── load_kgs.py、check_data.py、generate_zobrist.py   可直接執行的腳本
-│   └── data/、generated_games/   訓練資料，不進 git
+│   ├── dlgo/            棋盤、計分、agent、cnn.py（CNN 定義）、encoders/、data/（資料管線）、gosgf/（SGF 解析）
+│   ├── load_kgs.py、check_data.py、train_cnn.py、generate_zobrist.py   可直接執行的腳本
+│   ├── data/、generated_games/   訓練資料，不進 git
+│   └── models/          train_cnn.py 存的模型權重，不進 git
 ├── backend/app/          FastAPI，匯入一律從 app. 開頭
 │   ├── main.py           只建立 app、掛 middleware、例外處理與 router
 │   ├── core/             設定（config.py）與業務例外及其 handler（exceptions.py）

@@ -88,6 +88,35 @@ uv run python check_data.py data/train_features.npy data/train_labels.npy
 
 自動判斷編碼器，檢查格式、圍棋規則（例如答案沒有下在已有棋子的位置）和各層內容是否一致，失敗時列出是第幾個盤面。
 
+### 訓練 CNN
+
+```bash
+uv run python load_kgs.py -n 100 -e tenplane --chunks-only --test   # 產生訓練＋測試資料
+uv run python train_cnn.py -n 100 -e tenplane --epochs 10            # -n、-e 要跟上一行相同
+```
+
+| 參數 | 意思 | 預設 |
+|---|---|---|
+| `-n`、`--games` | 訓練盤數，要跟 `load_kgs.py -n` 相同 | 10 |
+| `-e`、`--encoder` | 編碼器，要跟 `load_kgs.py -e` 相同 | `sevenplane` |
+| `--epochs` | 訓練幾輪 | 10 |
+| `--batch-size` | 每批幾個盤面 | 128 |
+| `--lr` | 學習率（Adam） | 0.001 |
+| `--channels`、`--layers` | 每層卷積通道數、卷積層數 | 64、6 |
+| `--val-ratio` | 從訓練資料切出多少比例當驗證集 | 0.1 |
+| `--workers` | 讀資料的 process 數，0 表示在主程式讀 | 2 |
+| `--out` | 權重存檔路徑 | `models/cnn_<編碼器>_<盤數>.pt` |
+
+資料分成三份：
+
+| 資料 | 來源 | 用途 |
+|---|---|---|
+| 訓練集 | `-n` 盤棋扣掉驗證集 | 更新模型權重 |
+| 驗證集 | 從訓練資料切出 `--val-ratio`（預設 10%） | 每輪訓練完評估，保留驗證準確率最好的那一輪 |
+| 測試集 | 固定 100 盤（`load_kgs.py --test`） | 全部訓練完，用最好的模型評估一次 |
+
+資料一次只讀一個分塊，盤數再多也不會耗盡記憶體；有 NVIDIA 顯卡且裝了 CUDA 版 PyTorch 時會自動用 GPU。
+
 ### 編碼器
 
 | 編碼器 | 形狀（19x19） | 內容 |

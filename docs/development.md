@@ -13,6 +13,7 @@ uv run ruff check . && uv run ruff format .  # lint 與格式化
 uv sync                                                                   # 含 dev 相依的 torch（約數百 MB）
 uv run python load_kgs.py -n 10 -e sevenplane [--test]                 # 從 KGS 產生 data/train_features.npy 等
 uv run python load_kgs.py -n 1000 -e tenplane --chunks-only             # 資料大時只產生分塊檔，用 ChunkDataset 訓練
+uv run python train_cnn.py -n 1000 -e tenplane --epochs 10              # 訓練 CNN，-n／-e 要跟 load_kgs.py 相同，存到 models/
 uv run python check_data.py data/train_features.npy data/train_labels.npy  # 檢查訓練資料
 uv run python generate_zobrist.py                                         # 重新產生 dlgo/zobrist.py
 
