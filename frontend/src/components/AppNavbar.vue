@@ -5,7 +5,11 @@ import { BOARD_SIZES } from '@/api/game'
 import { useGameStore } from '@/stores/game'
 
 const game = useGameStore()
-const { size, loading } = storeToRefs(game)
+const { mode, size, loading, nnBoardSize } = storeToRefs(game)
+
+// 神經網路模式只能用模型訓練時的棋盤大小
+const sizeDisabled = (s: number) =>
+  loading.value || (mode.value === 'nn' && s !== nnBoardSize.value)
 </script>
 
 <template>
@@ -15,6 +19,7 @@ const { size, loading } = storeToRefs(game)
 
       <nav class="modes" aria-label="對局模式">
         <RouterLink :to="{ name: 'bot' }">隨機機器人</RouterLink>
+        <RouterLink :to="{ name: 'nn' }">神經網路</RouterLink>
         <RouterLink :to="{ name: 'practice' }">練習模式</RouterLink>
       </nav>
 
@@ -24,7 +29,7 @@ const { size, loading } = storeToRefs(game)
           :key="s"
           :class="{ active: s === size }"
           :aria-pressed="s === size"
-          :disabled="loading"
+          :disabled="sizeDisabled(s)"
           @click="game.setSize(s)"
         >
           {{ s }}×{{ s }}

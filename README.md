@@ -1,6 +1,8 @@
 # miniGO
 
-Vue 3 前端 + FastAPI 後端的圍棋對弈網站，可以對隨機機器人或練習模式（自己下黑白），棋盤有 9、13、19 路。
+Vue 3 前端 + FastAPI 後端的圍棋對弈網站，可以對隨機機器人、對神經網路（用 KGS 棋譜訓練的 CNN，19 路），或練習模式（自己下黑白），棋盤有 9、13、19 路。
+
+神經網路要先在 `dl/` 訓練出權重檔（見下方「訓練 CNN」），再在 `backend/.env` 設定 `NN_MODEL_PATH=../dl/models/<檔名>.pt` 並重啟後端。
 
 圍棋引擎（`dlgo`）與訓練程式放在 `dl/`，後端以 uv 的 editable path dependency 引入。
 

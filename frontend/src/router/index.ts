@@ -7,6 +7,7 @@ const router = createRouter({
     { path: '/', redirect: { name: 'bot' } },
     { path: '/bot', name: 'bot', component: GameView, props: { mode: 'bot' } },
     { path: '/practice', name: 'practice', component: GameView, props: { mode: 'practice' } },
+    { path: '/nn', name: 'nn', component: GameView, props: { mode: 'nn' } },
   ],
 })
 

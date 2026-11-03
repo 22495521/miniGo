@@ -10,31 +10,35 @@ const props = defineProps<{ mode: Mode }>()
 const game = useGameStore()
 const { size, state, loading, error } = storeToRefs(game)
 
-// 兩個模式共用這個元件，切換路由時只會換掉 mode
+// 所有模式共用這個元件，切換路由時只會換掉 mode
 watch(
   () => props.mode,
   (mode) => game.setMode(mode),
   { immediate: true },
 )
 
-const isBot = computed(() => props.mode === 'bot')
+// 有機器人的模式：隨機機器人、神經網路（玩家都執黑）
+const isBot = computed(() => props.mode !== 'practice')
 
-const title = computed(() => (isBot.value ? '隨機機器人' : '練習模式'))
-const subtitle = computed(() => {
-  const board = `${size.value}×${size.value}`
-  return isBot.value ? `${board} · 你執黑，對手是 RandomBot` : `${board} · 自己輪流下黑白兩方`
-})
+const MODE_TEXT: Record<Mode, { title: string; desc: string; opponent: string }> = {
+  bot: { title: '隨機機器人', desc: '你執黑，對手是 RandomBot', opponent: '機器人' },
+  nn: { title: '神經網路', desc: '你執黑，對手是 KGS 棋譜訓練的 CNN', opponent: '神經網路' },
+  practice: { title: '練習模式', desc: '自己輪流下黑白兩方', opponent: '' },
+}
+
+const title = computed(() => MODE_TEXT[props.mode].title)
+const subtitle = computed(() => `${size.value}×${size.value} · ${MODE_TEXT[props.mode].desc}`)
 
 const playerName = (color: 'b' | 'w') => {
   if (!isBot.value) return color === 'b' ? '黑' : '白'
-  return color === 'b' ? '你（黑）' : '機器人（白）'
+  return color === 'b' ? '你（黑）' : `${MODE_TEXT[props.mode].opponent}（白）`
 }
 
 const status = computed(() => {
   const s = state.value
   if (!s) return ''
   if (s.is_over) return resultText(s.result)
-  if (loading.value && isBot.value) return '機器人思考中…'
+  if (loading.value && isBot.value) return `${MODE_TEXT[props.mode].opponent}思考中…`
   return `輪到${playerName(s.next_player)}`
 })
 

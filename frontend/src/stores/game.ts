@@ -1,6 +1,14 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { fetchState, playMove, type BoardSize, type GameState, type Mode } from '@/api/game'
+import {
+  fetchNNStatus,
+  fetchState,
+  playMove,
+  playNN,
+  type BoardSize,
+  type GameState,
+  type Mode,
+} from '@/api/game'
 
 export const useGameStore = defineStore('game', () => {
   const mode = ref<Mode>('bot')
@@ -8,6 +16,8 @@ export const useGameStore = defineStore('game', () => {
   const state = ref<GameState | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  // 神經網路只支援模型訓練時的棋盤大小，進入 nn 模式時向後端查詢
+  const nnBoardSize = ref<BoardSize>(19)
 
   // 切換模式或棋盤大小時，忽略還沒回來的舊請求
   let requestId = 0
@@ -33,24 +43,44 @@ export const useGameStore = defineStore('game', () => {
   }
 
   // 切換模式或棋盤大小都會開新局
-  function setMode(value: Mode) {
+  async function setMode(value: Mode) {
     if (value === mode.value && state.value) return
     mode.value = value
-    return newGame()
+    if (value !== 'nn') return newGame()
+
+    // 神經網路模式：先確認模型已載入，並換成模型支援的棋盤大小
+    let ready = false
+    try {
+      const status = await fetchNNStatus()
+      nnBoardSize.value = status.board_size
+      ready = status.ready
+    } catch {
+      // 查不到狀態時照樣開局，下棋時後端會回錯誤訊息
+    }
+    if (mode.value !== 'nn') return // 等待期間已切到別的模式
+    size.value = nnBoardSize.value
+    await newGame()
+    if (!ready && mode.value === 'nn') {
+      error.value = '神經網路模型尚未載入：在 backend/.env 設定 NN_MODEL_PATH 後重啟後端'
+    }
   }
 
   function setSize(value: BoardSize) {
     if (value === size.value && state.value) return
+    if (mode.value === 'nn' && value !== nnBoardSize.value) return
     size.value = value
     return newGame()
   }
 
   function play(move: string) {
     if (loading.value || !state.value || state.value.is_over) return
-    return run(() => playMove(size.value, moves(), move, mode.value))
+    const m = mode.value
+    return run(() =>
+      m === 'nn' ? playNN(size.value, moves(), move) : playMove(size.value, moves(), move, m),
+    )
   }
 
-  // 練習模式退一手；機器人模式退回到上一次輪到黑棋（玩家）的時候
+  // 練習模式退一手；有機器人的模式（隨機、神經網路）退回到上一次輪到黑棋（玩家）的時候
   function undo() {
     const n = moves().length
     if (loading.value || n === 0) return
@@ -58,5 +88,17 @@ export const useGameStore = defineStore('game', () => {
     return run(() => fetchState(size.value, moves().slice(0, keep)))
   }
 
-  return { mode, size, state, loading, error, newGame, setMode, setSize, play, undo }
+  return {
+    mode,
+    size,
+    state,
+    loading,
+    error,
+    nnBoardSize,
+    newGame,
+    setMode,
+    setSize,
+    play,
+    undo,
+  }
 })

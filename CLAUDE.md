@@ -4,7 +4,7 @@
 
 - 使用者以繁體中文溝通，commit 訊息與程式註解都用繁體中文。
 - **不要自己 commit。** 做完後回報改了什麼，由使用者決定何時 commit；只有使用者明確要求時才執行 `git commit`。
-- miniGO 是圍棋對弈網站：`frontend/`（Vue 3 + TypeScript）、`backend/`（FastAPI，uv 管理），以及圍棋 AI 與訓練程式 `dl/`。有兩種模式：隨機機器人（玩家執黑對 RandomBot）與練習模式（沒有機器人，玩家輪流下黑白），棋盤可選 9、13、19 路。
+- miniGO 是圍棋對弈網站：`frontend/`（Vue 3 + TypeScript）、`backend/`（FastAPI，uv 管理），以及圍棋 AI 與訓練程式 `dl/`。有三種模式：隨機機器人（玩家執黑對 RandomBot）、神經網路（玩家執黑對 `dl/` 訓練的 CNN，只能下 19 路）與練習模式（沒有機器人，玩家輪流下黑白），棋盤可選 9、13、19 路。
 - 修改程式時，若影響到下列文件描述的內容（資料夾、API、慣例、指令），同步更新對應的 `docs/*.md`；新增主題時在 `docs/` 開新檔案並加進下方清單。
 
 ## 文件

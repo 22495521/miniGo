@@ -14,7 +14,7 @@
   - `mode: "practice"`：沒有機器人，替輪到的一方下這一手。
 - `size` 只接受 9、13、19（`schemas/game.py` 的 `BoardSize`），其他值回 422。
 - `GET /api/nn/status`：神經網路模型是否已載入（`ready`）與支援的棋盤大小。
-- `POST /api/nn/play {size, moves, move}`：玩家（黑）下一手，神經網路（白）接著回一手。模型未載入回 503，`size` 與 `NN_BOARD_SIZE` 不同回 400。前端尚未串接。
+- `POST /api/nn/play {size, moves, move}`：玩家（黑）下一手，神經網路（白）接著回一手。模型未載入回 503，`size` 與 `NN_BOARD_SIZE` 不同回 400。前端的「神經網路」頁籤（`/nn`）用這兩支 API；前端的 `Mode` 多了 `'nn'`，但送給 `/api/game/play` 的只有 `bot`、`practice`（`api/game.ts` 的 `GameMode`）。
 
 回傳格式定義在 `backend/app/schemas/game.py`，前端型別在 `frontend/src/api/game.ts`，兩邊要同步修改。容易弄錯的地方：
 
