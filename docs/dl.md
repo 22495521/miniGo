@@ -2,7 +2,7 @@
 
 圍棋 AI 的程式：棋盤規則、編碼器與訓練資料管線。`dl/` 是獨立的 uv 專案，網站後端如何引用它見 architecture.md。
 
-- 深度學習框架用 **PyTorch**。資料處理只用 numpy，例如 one-hot 用 `np.eye(n, dtype="float32")[y]`。
+- 深度學習框架用 **PyTorch**，放在 `dl/` 的 dev 相依（`uv add --dev`）：`dl/` 裡 `uv sync` 會裝，把 `dl/` 當套件引用的網站後端不會裝。資料處理只用 numpy，例如 one-hot 用 `np.eye(n, dtype="float32")[y]`。
 - `dlgo/gosgf/` 改自 gomill，是第三方程式，檔頭的出處標示要保留。
 
 ## 棋盤
@@ -34,14 +34,16 @@
 
 - 入口是 `load_kgs.py`，`parallel_processor.py` 和編碼器本身不能直接執行。
 - 用到 multiprocessing，在 Windows 上呼叫端必須放在 `if __name__ == '__main__':` 裡。
-- `load_go_data()` 一開始就會下載全部 55 個 KGS 壓縮檔。`load_kgs.py` 為了避開這點，自己依序呼叫 `Sampler.draw_data` → 只下載需要的檔案 → `map_to_workers` → `consolidate_games`。
-- `generator.DataGenerator` 有 `data_type` 參數，決定讀訓練或測試的分塊檔（寫死成 `'train'` 的話，測試 generator 會讀到訓練資料）。它照分塊順序輸出、不會打亂，每個分塊最後不滿 `batch_size` 的部分會被丟掉。資料放得進記憶體時，改用 `np.load` 加上 `DataLoader(shuffle=True)`。
+- `load_go_data()` 一開始就會下載全部 55 個 KGS 壓縮檔。`load_kgs.py` 為了避開這點，自己依序呼叫 `Sampler.draw_data` → 只下載需要的檔案 → `map_to_workers` → `consolidate_games`。加 `--chunks-only` 時跳過 `consolidate_games`，只留分塊檔。
+- `consolidate_games` 會把全部分塊讀進記憶體、labels 轉 one-hot 再合併，尖峰約是資料量的 2 倍，資料大時會爆。資料放不進記憶體時用 `--chunks-only` 加 `ChunkDataset`。
+- `generator.DataGenerator` 有 `data_type` 參數，決定讀訓練或測試的分塊檔（寫死成 `'train'` 的話，測試 generator 會讀到訓練資料）。它照分塊順序輸出、不會打亂，每個分塊最後不滿 `batch_size` 的部分會被丟掉。PyTorch 訓練改用 `ChunkDataset`。
+- `chunk_dataset.ChunkDataset(files, shuffle)`：PyTorch 的 `IterableDataset`，DataGenerator 的 PyTorch 版。一次只 `np.load` 一個分塊，回傳 float32 盤面與整數落點（直接給 `CrossEntropyLoss`）。分塊檔清單用 `find_chunk_files(data_dir, samples, data_type)` 取得，它只找 `samples` 所在壓縮檔的分塊（`data/` 可能留著別次產生的分塊，不能 glob 全部），所以訓練時要用跟 `load_kgs.py -n` 相同的盤數重新呼叫 `Sampler.draw_data`。直接傳檔案清單是為了能把訓練分塊再切出驗證集。每個 epoch 打亂分塊順序與塊內順序，但同一個 batch 只來自一兩個分塊，不是完全隨機。`num_workers > 0` 時用 `get_worker_info()` 把分塊檔**先固定切分再各自打亂**（先打亂再切會因各 worker 亂數不同而重疊）；沒有 `__len__`，`DataLoader` 不能設 `shuffle=True`。依賴 torch，所以沒放進 `dlgo/data/__init__.py`，要用 `from dlgo.data.chunk_dataset import ChunkDataset`。
 - `Sampler` 的亂數種子固定是 1337，同樣的抽樣盤數每次都抽到同樣的棋局。
 - 每個非讓子棋局的第一手（空棋盤）刻意不存成樣本。
-- `parallel_processor.py` 的行為：合併檔存成 `data/<train|test>_features.npy` / `_labels.npy`；pass 不計入樣本數；最後不滿 1024 的分塊也會存；每次都重新處理壓縮檔並先刪掉舊分塊，刻意不用快取，因為分塊檔沒有記錄抽到哪些棋局、用哪個編碼器。
+- `parallel_processor.py` 的行為：分塊檔存成 features `int8`、labels `int16`（落點索引）。`process_zip` 會先開一個裝下該壓縮檔所有抽到棋局的陣列才切塊，用預設 float64 時盤數多（例如 5000 盤）會讓多個 worker 合計耗盡記憶體、分塊檔也大 8 倍；讀取端（`ChunkDataset`、`DataGenerator`、`consolidate_games`）都會轉成 float32。合併檔存成 `data/<train|test>_features.npy` / `_labels.npy`；pass 不計入樣本數；最後不滿 1024 的分塊也會存；每次都重新處理壓縮檔並先刪掉舊分塊，刻意不用快取，因為分塊檔沒有記錄抽到哪些棋局、用哪個編碼器。
 
 ## 訓練資料
 
 - `data/`：KGS 棋譜與 `load_kgs.py` 的產出，不進 git。
-- 產生方式：`uv run python load_kgs.py -n <盤數> -e <編碼器> [--test]`；`--test` 另外產生固定 100 盤測試集（約多下載 15 個檔）。KGS 棋譜只有 19 路。
+- 產生方式：`uv run python load_kgs.py -n <盤數> -e <編碼器> [--test] [--chunks-only]`；`--test` 另外產生固定 100 盤測試集（約多下載 15 個檔）。KGS 棋譜只有 19 路。
 - `generated_games/`：MCTS 自我對弈資料，9x9、oneplane 編碼，不進 git。`features-40k.npy` 是 `(N, 1, 9, 9)`；`features-20` / `features-200` 少了平面那一維，是 `(N, 9, 9)`，使用前要 reshape。labels 是 81 維 one-hot。這些檔案是外部產生的，repo 裡沒有產生它們的腳本。

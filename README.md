@@ -60,8 +60,23 @@ uv run python load_kgs.py -n 100 --test         # 一併產生測試資料
 | `-n`、`--games` | 抽幾**盤棋**（不是幾個盤面） | 10 |
 | `-e`、`--encoder` | `oneplane`、`sevenplane`、`simple` 或 `tenplane` | `sevenplane` |
 | `--test` | 一併產生固定的 100 盤測試資料 | 不產生 |
+| `--chunks-only` | 只產生分塊檔，不合併成 `train_features.npy`（資料大時用） | 會合併 |
 
 產出 `data/train_features.npy`（盤面，`(盤面數, 層數, 19, 19)`）與 `data/train_labels.npy`（落點，one-hot，`(盤面數, 361)`），訓練時直接 `np.load`。每次執行都會覆蓋上一次的結果；同樣的 `-n` 每次會抽到同樣的棋局。一盤棋大約 180 個盤面，用 sevenplane 時 100 盤約 180 MB。
+
+合併時會把全部資料讀進記憶體，盤數多時會耗盡記憶體。這時加 `--chunks-only`，只留下每 1024 個盤面一個的分塊檔，訓練時用 `ChunkDataset` 一次讀一塊：
+
+```python
+from torch.utils.data import DataLoader
+from dlgo.data.sampling import Sampler
+from dlgo.data.chunk_dataset import ChunkDataset, find_chunk_files
+
+samples = Sampler(data_dir='data').draw_data('train', 1000)   # 盤數要跟 load_kgs.py -n 相同
+files = find_chunk_files('data', samples, 'train')
+loader = DataLoader(ChunkDataset(files), batch_size=128)
+for x, y in loader:   # x：float32 盤面；y：落點索引，直接給 nn.CrossEntropyLoss
+    ...
+```
 
 另外 `generated_games/` 有一份 9x9、已用 oneplane 編碼好的自我對弈資料，可以直接 `np.load`。
 

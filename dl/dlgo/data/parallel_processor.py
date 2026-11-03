@@ -68,8 +68,10 @@ class GoDataProcessor:
 
         shape = self.encoder.shape()
         feature_shape = np.insert(shape, 0, np.asarray([total_examples]))
-        features = np.zeros(feature_shape)
-        labels = np.zeros((total_examples,))
+        # 編碼器的值只有 -1、0、1，落點 0~360，用 int8 / int16 存。
+        # 預設的 float64 大 8 倍：盤數多時每個 worker 的這個陣列可達數 GB，多個 worker 同時跑會耗盡記憶體
+        features = np.zeros(feature_shape, dtype=np.int8)
+        labels = np.zeros((total_examples,), dtype=np.int16)
 
         counter = 0
         for index in game_list:

@@ -14,3 +14,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["dlgo"]
+
+[dependency-groups]
+dev = [
+    "torch>=2.15.0",
+]
