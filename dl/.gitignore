@@ -19,5 +19,3 @@ kgs_index.html
 # Fixed test-set list written by dlgo/data/sampling.py
 test_samples.py
 
-# Trained model weights (train_cnn.py)
-/models/
