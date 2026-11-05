@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 
 from app.core.config import settings
-from app.schemas.game import GameResponse
-from app.schemas.nn import NNPlayRequest, NNStatus
+from app.schemas.nn import NNPlayRequest, NNPlayResponse, NNStatus
 from app.services import bots
 from app.services.game import Game
+from app.services.nn import move_candidates
 
 router = APIRouter(prefix="/nn", tags=["nn"])
 
@@ -16,9 +16,13 @@ def status() -> NNStatus:
 
 
 @router.post("/play")
-def play(req: NNPlayRequest) -> GameResponse:
-    """玩家（黑）下一手，對局沒結束的話神經網路（白）接著回一手。"""
+def play(req: NNPlayRequest) -> NNPlayResponse:
+    """替輪到的一方下這一手，再回傳下一方每個點的機率。
+
+    神經網路不會自己下，要下哪一手由前端從 candidates 挑，再用同一支 API 送回來。
+    """
     agent = bots.get_nn_agent(req.size)
     game = Game.replay(req.size, req.moves)
-    game.play_turn(req.move, agent)
-    return game.to_response()
+    game.play(req.move)
+    candidates = move_candidates(game, agent)
+    return NNPlayResponse(**game.to_response().model_dump(), candidates=candidates)

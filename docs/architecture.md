@@ -14,7 +14,9 @@
   - `mode: "practice"`：沒有機器人，替輪到的一方下這一手。
 - `size` 只接受 9、13、19（`schemas/game.py` 的 `BoardSize`），其他值回 422。
 - `GET /api/nn/status`：神經網路模型是否已載入（`ready`）與支援的棋盤大小。
-- `POST /api/nn/play {size, moves, move}`：玩家（黑）下一手，神經網路（白）接著回一手。模型未載入回 503，`size` 與 `NN_BOARD_SIZE` 不同回 400。前端的「神經網路」頁籤（`/nn`）用這兩支 API；前端的 `Mode` 多了 `'nn'`，但送給 `/api/game/play` 的只有 `bot`、`practice`（`api/game.ts` 的 `GameMode`）。
+- `POST /api/nn/play {size, moves, move}`：替輪到的一方下這一手（不限黑白，跟練習模式一樣），回傳盤面加上 `candidates`：下一方 361 個點的評估。**神經網路不會自己下**，由前端從 `candidates` 挑一手再用同一支 API 送回。模型未載入回 503，`size` 與 `NN_BOARD_SIZE` 不同回 400。
+  - `candidates` 每點有 `move`、`raw_prob`（模型原始 softmax，361 點加總 1）、`prob`（排除不能下的點後重新分配，可下的點加總 1，不能下為 0）、`legal`、`reason`（`occupied`／`suicide`／`ko`，可下為 null）、`own_eye`（可下但會填自己的眼）。可以下的依 `prob` 由高到低在前，不能下的在後；對局結束時是空陣列。
+  - 計算在 `services/nn.py` 的 `move_candidates`，`illegal_reason` 跟 `GameState.is_valid_move` 判斷相同、只是分開回傳原因。前端的「神經網路」頁籤（`/nn`）用這兩支 API；前端的 `Mode` 多了 `'nn'`，但送給 `/api/game/play` 的只有 `bot`、`practice`（`api/game.ts` 的 `GameMode`）。
 
 回傳格式定義在 `backend/app/schemas/game.py`，前端型別在 `frontend/src/api/game.ts`，兩邊要同步修改。容易弄錯的地方：
 

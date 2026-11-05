@@ -74,6 +74,42 @@ def make_loader(dataset, batch_size, workers, device):
     return DataLoader(dataset, batch_size=batch_size, num_workers=workers, pin_memory=(device == 'cuda'))
 
 
+def prepare_data(args, device):
+    """讀分塊檔、檢查編碼器、建 DataLoader。回傳 (train_loader, val_loader, test_loader, 單筆形狀)。
+
+    沒有測試分塊時 test_loader 是 None。
+    """
+    train_set, val_set, test_set = load_datasets(args.games, args.val_ratio)
+
+    shape = check_encoder(train_set, args.encoder, '訓練',
+                          '-e 要跟 load_kgs.py 一樣，或用 load_kgs.py -e %s 重新產生' % args.encoder)
+    if test_set is not None:
+        # 測試分塊只有加 --test 才會重新產生，換編碼器後可能還是舊的，先檢查，免得訓練完才在測試時出錯
+        check_encoder(test_set, args.encoder, '測試',
+                      '測試分塊是用別的編碼器產生的，load_kgs.py 加 --test 重新產生')
+
+    print('盤面 %s，分塊檔：訓練 %d、驗證 %d、測試 %s'
+          % (shape, len(train_set.files), len(val_set.files),
+             len(test_set.files) if test_set is not None else '無'))
+
+    train_loader = make_loader(train_set, args.batch_size, args.workers, device)
+    val_loader = make_loader(val_set, args.batch_size * 2, args.workers, device)
+    test_loader = make_loader(test_set, args.batch_size * 2, args.workers, device) if test_set is not None else None
+    return train_loader, val_loader, test_loader, shape
+
+
+# ============================================================
+# 模型
+# ============================================================
+
+def build_model(num_planes, channels, lr, device):
+    """回傳 (model, loss_fn, optimizer)"""
+    model = GoCNN(num_planes, channels).to(device)   # 層數寫死在 dlgo/cnn.py（6 層）
+    loss_fn = nn.CrossEntropyLoss()                   # labels 是落點索引，直接用，不需要 one-hot
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    return model, loss_fn, optimizer
+
+
 # ============================================================
 # 訓練與評估
 # ============================================================
@@ -139,6 +175,37 @@ def result_text(loss, correct, total):
     return f'loss: {loss:.3f} | Accuracy: {100. * correct / total:.2f}% ({correct}/{total})'
 
 
+def train(model, train_loader, val_loader, loss_fn, optimizer, device, epochs, model_path, config):
+    """訓練 epochs 輪；每輪用驗證集評估，只存驗證準確率最好的那一輪。回傳最好的驗證準確率"""
+    best_val_acc = -1.0
+
+    for epoch in range(1, epochs + 1):
+        start = time.time()
+        train_loss, train_correct, train_total = train_one_epoch(model, train_loader, loss_fn, optimizer, device, epoch)
+        val_loss, val_correct, val_total = evaluate(model, val_loader, loss_fn, device)
+
+        print(f'[Epoch {epoch} Train] {result_text(train_loss, train_correct, train_total)}')
+        print(f'[Epoch {epoch} Val  ] {result_text(val_loss, val_correct, val_total)}  ({time.time() - start:.0f} 秒)')
+
+        val_acc = val_correct / val_total
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            save_model(model_path, model, config)
+
+    print('Finished Training')
+    return best_val_acc
+
+
+def test(model_path, test_loader, loss_fn, device):
+    """載入最好的模型，用沒看過的測試集評估一次"""
+    model, _ = load_model(model_path, device)
+
+    print('開始評估...')
+    test_loss, test_correct, test_total = evaluate(model, test_loader, loss_fn, device)
+    print(f'\n[Test Result] {result_text(test_loss, test_correct, test_total)}')
+    print('Finished Testing')
+
+
 # ============================================================
 # 主程式
 # ============================================================
@@ -160,58 +227,28 @@ def parse_args():
 def main():
     args = parse_args()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    out = args.out or os.path.join(MODEL_DIR, 'cnn_%s_%d.pt' % (args.encoder, args.games))
-    os.makedirs(os.path.dirname(out) or '.', exist_ok=True)
+    model_path = args.out or os.path.join(MODEL_DIR, 'cnn_%s_%d.pt' % (args.encoder, args.games))
+    os.makedirs(os.path.dirname(model_path) or '.', exist_ok=True)
+    print(f'使用裝置: {device}')
 
-    # ---- 1. 準備資料 ----
-    train_set, val_set, test_set = load_datasets(args.games, args.val_ratio)
-    num_planes, height, width = check_encoder(
-        train_set, args.encoder, '訓練', '-e 要跟 load_kgs.py 一樣，或用 load_kgs.py -e %s 重新產生' % args.encoder)
-    if test_set is not None:
-        # 測試分塊只有加 --test 才會重新產生，換編碼器後可能還是舊的，先檢查，免得訓練完才在測試時出錯
-        check_encoder(test_set, args.encoder, '測試',
-                      '測試分塊是用別的編碼器產生的，load_kgs.py 加 --test 重新產生')
-    train_loader = make_loader(train_set, args.batch_size, args.workers, device)
-    val_loader = make_loader(val_set, args.batch_size * 2, args.workers, device)
+    # 1. 準備資料
+    train_loader, val_loader, test_loader, (num_planes, height, _) = prepare_data(args, device)
 
-    print(f'使用裝置: {device}，盤面 {(num_planes, height, width)}')
-    print('分塊檔：訓練 %d、驗證 %d、測試 %s'
-          % (len(train_set.files), len(val_set.files), len(test_set.files) if test_set is not None else '無'))
-
-    # ---- 2. 建立模型 ----
+    # 2. 建立模型（config 跟權重一起存，下棋時才建得出一樣的網路、用一樣的編碼器）
+    model, loss_fn, optimizer = build_model(num_planes, args.channels, args.lr, device)
     config = {'encoder': args.encoder, 'board_size': height, 'num_planes': num_planes,
               'channels': args.channels}
-    model = GoCNN(num_planes, args.channels).to(device)   # 層數寫死在 dlgo/cnn.py（6 層）
-    loss_fn = nn.CrossEntropyLoss()   # labels 是落點索引，直接用，不需要 one-hot
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # ---- 3. 訓練：每輪訓練完用驗證集評估，保留驗證準確率最好的那一輪 ----
-    best_val_acc = -1.0
-    for epoch in range(1, args.epochs + 1):
-        start = time.time()
-        train_loss, train_correct, train_total = train_one_epoch(model, train_loader, loss_fn, optimizer, device, epoch)
-        val_loss, val_correct, val_total = evaluate(model, val_loader, loss_fn, device)
+    # 3. 訓練：每輪用驗證集挑模型
+    best_val_acc = train(model, train_loader, val_loader, loss_fn, optimizer, device,
+                         args.epochs, model_path, config)
+    print(f'最好的驗證準確率: {100. * best_val_acc:.2f}%，模型存在 {model_path}')
 
-        print(f'[Epoch {epoch} Train] {result_text(train_loss, train_correct, train_total)}')
-        print(f'[Epoch {epoch} Val  ] {result_text(val_loss, val_correct, val_total)}  ({time.time() - start:.0f} 秒)')
-        val_acc = val_correct / val_total
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            save_model(out, model, config)
-
-    print('Finished Training')
-    print(f'最好的驗證準確率: {100. * best_val_acc:.2f}%，模型存在 {out}')
-
-    # ---- 4. 測試：載入最好的模型，用沒看過的測試集評估一次 ----
-    if test_set is None:
+    # 4. 測試：全部訓練完才用測試集評估一次
+    if test_loader is None:
         print('沒有測試資料，跳過測試（load_kgs.py 加 --test 產生）')
         return
-    best_model, _ = load_model(out, device)
-    test_loader = make_loader(test_set, args.batch_size * 2, args.workers, device)
-    print('開始評估...')
-    test_loss, test_correct, test_total = evaluate(best_model, test_loader, loss_fn, device)
-    print(f'\n[Test Result] {result_text(test_loss, test_correct, test_total)}')
-    print('Finished Testing')
+    test(model_path, test_loader, loss_fn, device)
 
 
 if __name__ == '__main__':   # Windows 上 DataLoader 用多個 worker 時一定要有

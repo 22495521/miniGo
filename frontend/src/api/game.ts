@@ -27,6 +27,25 @@ export interface NNStatus {
   board_size: BoardSize
 }
 
+// 神經網路對某一點的評估，對應後端 schemas/nn.py 的 MoveCandidate
+export interface MoveCandidate {
+  move: string
+  // 只在可以下的點之間重新分配的機率（可下的點加總為 1）；不能下的點為 0
+  prob: number
+  // 模型原本的輸出，不能下的點也有值
+  raw_prob: number
+  legal: boolean
+  // 不能下的原因：已有棋子、自殺、打劫
+  reason: 'occupied' | 'suicide' | 'ko' | null
+  // 可以下，但會填掉自己的眼
+  own_eye: boolean
+}
+
+export interface NNPlayResponse extends GameState {
+  // 輪到的一方每個點的評估：可以下的依 prob 由高到低在前，不能下的在後；對局結束時是空的
+  candidates: MoveCandidate[]
+}
+
 async function request<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method: body === undefined ? 'GET' : 'POST',
@@ -52,7 +71,7 @@ export function fetchNNStatus() {
   return request<NNStatus>('/nn/status')
 }
 
-// 玩家（黑）下一手，神經網路（白）接著回一手
+// 替輪到的一方下這一手，回傳盤面與下一方每個點的機率。神經網路不會自己下，由前端挑
 export function playNN(size: BoardSize, moves: string[], move: string) {
-  return request<GameState>('/nn/play', { size, moves, move })
+  return request<NNPlayResponse>('/nn/play', { size, moves, move })
 }
